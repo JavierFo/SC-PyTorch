@@ -1,60 +1,101 @@
-#include <vector>
 #include <iostream>
-//STOCHASTIC TENSOR GENERATOR TEST/////////////////////////////////////////////////////////////////////
-// Provided function
-void stochasticNumberGenerator1(int *randomNumbers, int N, int externalNumber, std::vector<int> &output) {
-    // Resize the output vector to ensure it has enough space
-    output.resize(sizeof(randomNumbers));  
-    for (int i = 0; i < sizeof(randomNumbers); ++i) {
-        if (randomNumbers[i] < externalNumber) {
-            output[i] = 1;
-        } else {
-            output[i] = 0;
-        }
-    }
+#include <vector>
+#include <cstdlib>
+#include <ctime>
+#include <algorithm>
+#include <random>
+
+#include "StochasticTensor.h"
+
+// Function to calculate the real number from a stochastic bitstream
+double convertFromStochasticBitstream_(const std::vector<int>& bitstream) {
+    // Calculate the probability of 1s
+    double countOnes = std::count(bitstream.begin(), bitstream.end(), 1);
+    double probability = static_cast<double>(countOnes) / bitstream.size();
+    std::cout << "ONES: " << countOnes << std::endl;
+    // Convert probability to bipolar value
+    double bipolarValue = 2 * probability - 1;
+    //std::cout << "bipolar val: " << bipolarValue << std::endl;
+
+    // Denormalize to the original range
+    //double realNumber = (bipolarValue + 1) / 2 * (maxRange - minRange) + minRange;
+
+    return bipolarValue;
 }
 
-// The new function that processes the input and generates the output
-std::vector<std::vector<std::vector<int>>> processVector(
-    const std::vector<std::vector<int>>& A, 
-    int *randomNumbers, 
-    int N
-) {
-    std::vector<std::vector<std::vector<int>>> B(A.size());
-
-    for (size_t i = 0; i < A.size(); ++i) {
-        B[i].resize(A[i].size());
-        for (size_t j = 0; j < A[i].size(); ++j) {
-            stochasticNumberGenerator1(randomNumbers, N, A[i][j], B[i][j]);
-        }
+// Function to multiply two stochastic bitstreams element-wise
+std::vector<int> multiplyStochasticBitstreams(const std::vector<int>& bitstream1, const std::vector<int>& bitstream2) {
+    std::vector<int> result(bitstream1.size());
+    for (size_t i = 0; i < bitstream1.size(); ++i) {
+        //result[i] = bitstream1[i] & bitstream2[i];  // Logical AND to multiply
+        result[i] = ~(bitstream1[i] ^ bitstream2[i]) & 1;
     }
-
-    return B;
+    return result;
 }
 
-/*int main() {
-    // Example usage
-    std::vector<std::vector<int>> A = {
-        {5, 10, 15, 8, 3, 55, 22},
-        {20, 25, 255, 260, 55, 6, 87},
-        {4000, 2000, 6000, 2000, 5500, 1000, 300}
-    };
+// int main() {
+//     // Define the input real numbers
+//     double input1 = .5;
+//     double input2 = .9;
+//     int bitstreamLength = 100;  // Length of the stochastic bitstream
+//     double minRange = 0;
+//     double maxRange = 255;
+//     std::vector<int> bitstream1, bitstream2, resultBitstream;
 
-    int randomNumbers[] = {1, 255, 10, 1500, 20, 25}; // Example random numbers
-    int N = 6; // Length of the randomNumbers array
+//     // Convert to stochastic bitstreams
+//     stochasticNumberGenerator(bitstreamLength, LFSR, input1, BIPOLAR, bitstream1);
+//     stochasticNumberGenerator(bitstreamLength, LFSR, input2, BIPOLAR, bitstream2);
 
-    std::vector<std::vector<std::vector<int>>> B = processVector(A, randomNumbers, N);
+//     double scbitstream1 = convertFromStochasticBitstream_(bitstream1);
+//         std::cout << "SC bitstream1: " << scbitstream1 << std::endl;
 
-    // Print the result
-    for (const auto& row : B) {
-        for (const auto& vec : row) {
-            for (int num : vec) {
-                std::cout << num << " ";
-            }
-            std::cout << "\t";
-        }
-        std::cout << "\n";
-    }
+//     double scbitstream1_ = calculatePx(bitstream1 , BIPOLAR);
+//         std::cout << "SC bitstream1_: " << scbitstream1_ << std::endl;
 
-    return 0;
-}*/
+//     double scbitstream2 = convertFromStochasticBitstream_(bitstream2);
+//         std::cout << "SC bitstream2: " << scbitstream2 << std::endl;
+
+//     double scbitstream2_ = calculatePx(bitstream2 , BIPOLAR);
+//         std::cout << "SC bitstream2_: " << scbitstream2_ << std::endl;
+
+//     //std::cout << "SC bitstream2: " << scbitstream2 << std::endl;
+
+//     // Multiply the two stochastic bitstreams
+//     //resultBitstream = multiplyStochasticBitstreams(bitstream1, bitstream2);
+//     // bitstream1 = {1,1,1,1,1,1,1,1};
+//     // bitstream2 = {0,0,0,1,1,0,0,1};
+
+//     resultBitstream = bitstreamOperation(bitstream1, bitstream2, XNOR);
+
+//     //std::cout << "Multiplication: " << std::endl;
+//     // Convert the result bitstream back to real form
+//     double resultReal = convertFromStochasticBitstream_(resultBitstream);
+
+//     std::cout << "Converted result real value: " << resultReal << std::endl;
+
+//     double resultAddition = calculatePx(bitstream1, BIPOLAR, bitstream2)*2;
+//     std::cout << "Addition result value: " << resultAddition << std::endl;
+//     //std::cout << "Converted result real value: " << resultReal*255 << std::endl;
+
+//     // Print the bitstreams and the result
+//     // std::cout << "Bitstream for " << input1 << ": ";
+//     // for (int bit : bitstream1) {
+//     //     std::cout << bit;
+//     // }
+//     // std::cout << std::endl;
+
+//     // std::cout << "Bitstream for " << input2 << ": ";
+//     // for (int bit : bitstream2) {
+//     //     std::cout << bit;
+//     // }
+//     // std::cout << std::endl;
+
+//     std::cout << "Resulting bitstream: ";
+//     for (int bit : resultBitstream) {
+//         std::cout << bit;
+//     }
+//     std::cout << std::endl;
+
+//     return 0;
+// }
+

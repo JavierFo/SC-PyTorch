@@ -9,9 +9,9 @@ StochasticTensor::StochasticTensor(int x, int y, int z)
     generateRandomTensor();
 }
 
-StochasticTensor::StochasticTensor(const std::vector<std::vector<int>>& inputVector, const std::vector<int>&LFSR_basedRandomNumbersArray) 
+StochasticTensor::StochasticTensor(const std::vector<std::vector<double>>& inputVector, const int bitstreamLength, RandomNumberGenType type, BitstreamRepresentation mode) 
 : tensor() {
-    generateTensor(inputVector, LFSR_basedRandomNumbersArray);
+    generateTensor(inputVector, bitstreamLength, type, mode);
 }
 
 // Getter for the tensor
@@ -20,7 +20,7 @@ const std::vector<std::vector<std::vector<int>>>& StochasticTensor::getTensor() 
 }
 
 // Method to print the tensor
-void StochasticTensor::printTensor() const {
+void StochasticTensor::printStochasticTensor() const {
     std::cout << "{" << std::endl;
     for (const auto& matrix : tensor) {
         std::cout << "  {" << std::endl;
@@ -38,13 +38,13 @@ void StochasticTensor::printTensor() const {
 
 // Method to generate the tensor with parameters: input and lfsr RNG array
 // Size of LFSR_basedRandomNumbersArray = Stochastic number bitstream length 
-void StochasticTensor::generateTensor(const std::vector<std::vector<int>>& inputVector, const std::vector<int>&LFSR_basedRandomNumbersArray) {
+void StochasticTensor::generateTensor(const std::vector<std::vector<double>>& inputVector, const int bitstreamLength, RandomNumberGenType type,  BitstreamRepresentation mode) {
    std::vector<std::vector<std::vector<int>>> SCtensor(inputVector.size());
 
     for (size_t i = 0; i < inputVector.size(); ++i) {
         SCtensor[i].resize(inputVector[i].size());
         for (size_t j = 0; j < inputVector[i].size(); ++j) {
-            stochasticNumberGenerator(LFSR_basedRandomNumbersArray, inputVector[i][j], SCtensor[i][j]);
+            stochasticNumberGenerator(bitstreamLength, type,  inputVector[i][j], mode, SCtensor[i][j]);
         }
     }
 
@@ -92,11 +92,38 @@ StochasticTensor::SizeTuple StochasticTensor::getSize() {
     return std::make_tuple(depth, rows, columns);
 }
 
+// Function to process the input 3D vector and apply the specified operations
+std::vector<std::vector<double>> StochasticTensor::toRealTensor(int scale, BitstreamRepresentation mode) {
+    std::vector<std::vector<double>> result;
+
+    for (const auto& matrix : tensor) {
+        std::vector<double> rowResult;
+        for (const auto& vec : matrix) {
+            int countOnes = 0;
+            for (int val : vec) {
+                if (val == 1) {
+                    countOnes++;
+                }
+            }
+            double probability = static_cast<double>(countOnes) / vec.size();
+                if (mode == UNIPOLAR) {
+                    rowResult.push_back(probability * scale);
+                } else if (mode == BIPOLAR) {
+                    rowResult.push_back(((2 * probability) - 1) * scale);
+                } else {
+                    throw std::invalid_argument("Invalid mode");
+                }
+        }
+        result.push_back(rowResult);
+    }
+    return result;
+}
+
 // Method to calculate px and return the appropriate result based on the mode
-double calculatePx(const std::vector<int>& bstream1, bitstreamRepresentation mode, const std::vector<int>& bstream2) {
+double calculatePx(const std::vector<int>& bstream1, BitstreamRepresentation mode, const std::vector<int>& bstream2) {
     // Combine the vectors if a second vector is provided
     std::vector<int> combined = bstream1;
-    if (!bstream2.empty()) {
+    if ((!bstream2.empty()) && (bstream1.size() == bstream2.size())) {
         combined.insert(combined.end(), bstream2.begin(), bstream2.end());
     }
 
@@ -118,9 +145,52 @@ double calculatePx(const std::vector<int>& bstream1, bitstreamRepresentation mod
     if (mode == UNIPOLAR) {
         return px;
     } else if (mode == BIPOLAR) {
-        return 2 * px - 1;
+        return (2 * px) - 1;
     } else {
         throw std::invalid_argument("Invalid mode");
+    }
+}
+
+// Function to normalize the real number to the range [-1, 1]
+double normalizeRealNumber(int realNumber, double minRange, double maxRange) {
+    //return 2 * ((static_cast<double>(realNumber) - minRange) / (maxRange - minRange)) - 1;
+    return realNumber/maxRange;
+}
+
+// Function to convert a real number to a stochastic bitstream
+void stochasticNumberGenerator(const int bitstreamLength, RandomNumberGenType type, double inputRealNumber, BitstreamRepresentation mode, std::vector<int>& output) { //,  double minRange, double maxRange
+    // Normalize the inputRealNumber to the range [-1, 1]
+    //double normalizedValue = normalizeRealNumber(inputRealNumber, minRange, maxRange);
+    // Convert normalized value to probability
+    double probability = 0.0;
+    if (mode == UNIPOLAR) { probability = inputRealNumber; }
+    else if (mode == BIPOLAR) { probability = (inputRealNumber + 1) / 2.0; };
+
+    //std::cout << "probability " << probability << "\n";
+    // Resize output vector to the desired bitstream length
+    output.resize(bitstreamLength);
+
+    if (type == MT19937) {
+        std::random_device rd;  // Non-deterministic random number generator
+        std::mt19937 gen(rd()); // Mersenne Twister engine seeded with random_device
+        std::uniform_real_distribution<double> dis(0.0, 1.0);
+        for (int i = 0; i < bitstreamLength; ++i) {
+            double randomValue = dis(gen);
+            output[i] = (randomValue < probability) ? 1 : 0;
+        }
+    } else if (type == LFSR) {
+        std::random_device rd;
+        std::mt19937 gen(rd()); 
+        std::uniform_int_distribution<uint8_t> dis(0, 255);
+        uint8_t lfsrSeed = dis(gen);
+        //randomNumbers = LFSR_RNG_arrayGenerator(bitstreamLength, lfsrSeed);
+        for (int i = 0; i < bitstreamLength; ++i) {
+            double randomNumber = static_cast<double>(std::bitset<8>(lfsrSeed).to_ulong())/255.0;
+            output[i] = (randomNumber < probability) ? 1 : 0;
+            lfsrSeed = LFSR_StatesGenerator(lfsrSeed);
+        }
+    } else {
+        throw std::invalid_argument("Invalid type");
     }
 }
 
@@ -133,38 +203,19 @@ uint8_t LFSR_StatesGenerator(uint8_t state) {
     return state;
 }
 
-void stochasticNumberGenerator(const std::vector<int>&randomNumbers, int inputRealNumber, std::vector<int> &output) {
-
-    // Resize the output vector to ensure it has enough space
-    int bitstreamLength =randomNumbers.size();
-    output.resize(bitstreamLength);
-    
-    for (int i = 0; i < bitstreamLength; ++i) {
-        if (randomNumbers[i] < inputRealNumber) {
-            output[i] = 1;
-        } else {
-            output[i] = 0;
-        }
-    }
-}
-
-// Function to generate an array of lfsr based random numbers
-std::vector<int> LFSR_RNG_arrayGenerator(int arrayLength_bitstreamLength, uint8_t lfsr_seed) {
-    std::vector<int> randomNumbersArray(arrayLength_bitstreamLength);
-    for (int i = 0; i < arrayLength_bitstreamLength; ++i) {
-        randomNumbersArray[i] = std::bitset<8>(lfsr_seed).to_ulong(); 
-        lfsr_seed = LFSR_StatesGenerator(lfsr_seed);
-    }
-    return randomNumbersArray;
-}
-
 // Function to perform bitwise operations on two vectors of 1s and 0s
 std::vector<int> bitstreamOperation(const std::vector<int>& bitstream1, const std::vector<int>& bitstream2, BitwiseOperation op) {
-    if (bitstream1.size() != bitstream2.size()) {
-        throw std::invalid_argument("Vectors must be of the same length");
-    }
-
     std::vector<int> result(bitstream1.size());
+    if (bitstream1.size() != bitstream2.size()) {
+        result = bitstream1;
+        return result;
+    }
+    
+    //RNG for the MUX
+    std::random_device rd;  // Obtain a random number from hardware
+    std::mt19937 gen(rd()); // Seed the generator
+    std::uniform_real_distribution<> dis(0.0, 1.0); // Define the range
+    double random_value = dis(gen);
 
     for (size_t i = 0; i < bitstream1.size(); ++i) {
         switch (op) {
@@ -186,9 +237,57 @@ std::vector<int> bitstreamOperation(const std::vector<int>& bitstream1, const st
             case NAND:
                 result[i] = ~(bitstream1[i] & bitstream2[i]) & 1; // & 1 to ensure the result is either 0 or 1
                 break;
+            case MUX: 
+                random_value = dis(gen);
+                //result[i] = (select[i] == 1) ? bitstream1[i] : bitstream2[i];
+                result[i] = (random_value < 0.5) ? bitstream1[i] : bitstream2[i];
+                // if (random_value < 0.5) {
+                //     result[i] = bitstream1[i];
+                // } else {
+                //     result[i] = bitstream2[i];
+                // }
+                break;
             default:
                 throw std::invalid_argument("Invalid operation");
         }
     }
     return result;
 }
+
+// // Function to generate an array of lfsr based random numbers
+// std::vector<int> LFSR_RNG_arrayGenerator(int arrayLength_bitstreamLength, uint8_t lfsr_seed) {
+//     std::vector<int> randomNumbersArray(arrayLength_bitstreamLength);
+//     for (int i = 0; i < arrayLength_bitstreamLength; ++i) {
+//         randomNumbersArray[i] = std::bitset<8>(lfsr_seed).to_ulong(); 
+//         lfsr_seed = LFSR_StatesGenerator(lfsr_seed);
+//     }
+//     return randomNumbersArray;
+// }
+
+// Function to create stochastic number bitstreams
+// void stochasticNumberGenerator(const int bitstreamLength, RandomNumberGenType type, int inputRealNumber, std::vector<int> &output) {
+
+//     std::vector<int> randomNumbers(bitstreamLength);
+//     output.resize(bitstreamLength);
+//     if (type == MT19937) {
+//         std::random_device rd;
+//         std::mt19937 gen(rd());
+//         std::uniform_int_distribution<uint8_t> dis(0, 255);
+//         for (int i = 0; i < bitstreamLength; ++i) {
+//             double randomValue = dis(gen);
+//             output[i] = (randomValue < inputRealNumber) ? 1 : 0;
+//         }
+//     } else if (type == LFSR) {
+//         uint8_t lfsrSeed = generateRandomState();
+//         randomNumbers = LFSR_RNG_arrayGenerator(bitstreamLength, lfsrSeed);
+//         for (int i = 0; i < bitstreamLength; ++i) {
+//         if (randomNumbers[i] < inputRealNumber) {
+//             output[i] = 1;
+//         } else {
+//             output[i] = 0;
+//         }
+//     }
+//     } else {
+//         throw std::invalid_argument("Invalid type");
+//     }
+// }
