@@ -178,24 +178,24 @@ std::tuple<std::vector<std::vector<double>>, std::vector<std::vector<std::vector
             //double scale = addedScOutput_acc.size()/inputBitstreamSize;
             //std::cout << "iteration" << j << std::endl;
 
-void prettyPrint(const std::vector<std::vector<double>>& matrix) {
-    std::cout << "{\n";
-    for (const auto& row : matrix) {
-        std::cout << "  { ";
-        for (size_t i = 0; i < row.size(); ++i) {
-            std::cout << row[i];
-            if (i < row.size() - 1) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << " }";
-        if (&row != &matrix.back()) {
-            std::cout << ",";
-        }
-        std::cout << "\n";
-    }
-    std::cout << "}\n";
-}
+// void prettyPrint(const std::vector<std::vector<double>>& matrix) {
+//     std::cout << "{\n";
+//     for (const auto& row : matrix) {
+//         std::cout << "  { ";
+//         for (size_t i = 0; i < row.size(); ++i) {
+//             std::cout << row[i];
+//             if (i < row.size() - 1) {
+//                 std::cout << ", ";
+//             }
+//         }
+//         std::cout << " }";
+//         if (&row != &matrix.back()) {
+//             std::cout << ",";
+//         }
+//         std::cout << "\n";
+//     }
+//     std::cout << "}\n";
+// }
 
 std::vector<std::vector<double>> toRealTensor(const std::vector<std::vector<std::vector<int>>>& tensor, int scale, BitstreamRepresentation mode) {
     std::vector<std::vector<double>> result;
@@ -226,149 +226,149 @@ std::vector<std::vector<double>> toRealTensor(const std::vector<std::vector<std:
     return result;
 }
 
-std::vector<std::vector<double>> realTensorNormalizer (const std::vector<std::vector<double>>& matrix, int minVal, int maxVal) {
-    std::vector<std::vector<double>> result;
-    for (const auto& row : matrix) {
-        std::vector<double> rowResult;
-        for (const auto& value : row) {
-            double normalizedValue = normalizeRealNumber(value, minVal, maxVal);
-            rowResult.push_back(normalizedValue);
-        }
-        result.push_back(rowResult);
-    }
-    return result;
-}
+// std::vector<std::vector<double>> realTensorNormalizer (const std::vector<std::vector<double>>& matrix, int minVal, int maxVal) {
+//     std::vector<std::vector<double>> result;
+//     for (const auto& row : matrix) {
+//         std::vector<double> rowResult;
+//         for (const auto& value : row) {
+//             double normalizedValue = normalizeRealNumber(value, minVal, maxVal);
+//             rowResult.push_back(normalizedValue);
+//         }
+//         result.push_back(rowResult);
+//     }
+//     return result;
+// }
 
-int main() {
-    // Example input matrix
-    std::vector<std::vector<double>> input = {
-        {-5, 150, 80},
-        {250, 0, -180},
-        {-220, 50, 205}
-    };
-    std::vector<std::vector<double>> kernel = {
-        {-105, -250},
-        {-30, -3}
-    };
+// int main() {
+//     // Example input matrix
+//     std::vector<std::vector<double>> input = {
+//         {-5, 150, 80},
+//         {250, 0, -180},
+//         {-220, 50, 205}
+//     };
+//     std::vector<std::vector<double>> kernel = {
+//         {-105, -250},
+//         {-30, -3}
+//     };
 
-    // std::vector<std::vector<double>> sc_input = {
-    //     {.1, -.2, .3},
-    //     {.4, .5, -.6},
-    //     {.7, -.8, .9}
-    // };
-    // std::vector<std::vector<double>> sc_kernel = {
-    //     {1, 0},
-    //     {-1, -.5}
-    // };
+//     // std::vector<std::vector<double>> sc_input = {
+//     //     {.1, -.2, .3},
+//     //     {.4, .5, -.6},
+//     //     {.7, -.8, .9}
+//     // };
+//     // std::vector<std::vector<double>> sc_kernel = {
+//     //     {1, 0},
+//     //     {-1, -.5}
+//     // };
 
-    std::vector<std::vector<double>> sc_input = realTensorNormalizer(input,0,255);
-    std::vector<std::vector<double>> sc_kernel = realTensorNormalizer(kernel,0,255);
+//     std::vector<std::vector<double>> sc_input = realTensorNormalizer(input,0,255);
+//     std::vector<std::vector<double>> sc_kernel = realTensorNormalizer(kernel,0,255);
 
-    int N = 1000000; // size of lfsr based random numbers / bitstream length
+//     int N = 1000000; // size of lfsr based random numbers / bitstream length
 
-    // prettyPrint(sc_input);
-    // prettyPrint(sc_kernel);
+//     // prettyPrint(sc_input);
+//     // prettyPrint(sc_kernel);
 
-    StochasticTensor SCtensorInput(sc_input, N, MT19937, BIPOLAR);
-    StochasticTensor SCtensorKernel(sc_kernel, N, MT19937, BIPOLAR);
+//     StochasticTensor SCtensorInput(sc_input, N, MT19937, BIPOLAR);
+//     StochasticTensor SCtensorKernel(sc_kernel, N, MT19937, BIPOLAR);
 
-    //std::vector<std::vector<double>> realSCtensorInput = SCtensorInput.toRealTensor(1, BIPOLAR);
-    //std::vector<std::vector<double>> realSCtensorKernel = SCtensorKernel.toRealTensor(1, BIPOLAR);
-    // std::cout << "SC_Input:";
-    // prettyPrint(realSCtensorInput);
-    // std::cout << "SC_Kernel:";
-    // prettyPrint(realSCtensorKernel);
+//     //std::vector<std::vector<double>> realSCtensorInput = SCtensorInput.toRealTensor(1, BIPOLAR);
+//     //std::vector<std::vector<double>> realSCtensorKernel = SCtensorKernel.toRealTensor(1, BIPOLAR);
+//     // std::cout << "SC_Input:";
+//     // prettyPrint(realSCtensorInput);
+//     // std::cout << "SC_Kernel:";
+//     // prettyPrint(realSCtensorKernel);
 
-    std::cout << "1. Convolution wth Original function:";
-    std::vector<std::vector<double>> originalResult = conv2(input, kernel);
-    prettyPrint(originalResult);
+//     std::cout << "1. Convolution wth Original function:";
+//     std::vector<std::vector<double>> originalResult = conv2(input, kernel);
+//     prettyPrint(originalResult);
 
-    // std::cout << "Convolution wth Original function but Stochastic input_kernel:";
-    // std::vector<std::vector<double>> realSCresult = conv2(realSCtensorInput, realSCtensorKernel);
-    // prettyPrint(realSCresult);
+//     // std::cout << "Convolution wth Original function but Stochastic input_kernel:";
+//     // std::vector<std::vector<double>> realSCresult = conv2(realSCtensorInput, realSCtensorKernel);
+//     // prettyPrint(realSCresult);
 
-    auto scConvOutput = SC_conv2(SCtensorInput, SCtensorKernel);
+//     auto scConvOutput = SC_conv2(SCtensorInput, SCtensorKernel);
 
-    auto double2DVector = std::get<0>(scConvOutput);
-    auto int3DVector = std::get<1>(scConvOutput);
-    auto acc_double2DVector = std::get<2>(scConvOutput);
+//     auto double2DVector = std::get<0>(scConvOutput);
+//     auto int3DVector = std::get<1>(scConvOutput);
+//     auto acc_double2DVector = std::get<2>(scConvOutput);
 
-    // std::cout << "Convolution wth polar mult and Pq = (1-Ps)(Pa) + (Ps)(Pb) addition:";
-    // //std::vector<std::vector<double>> result = SC_conv2(SCtensorInput, SCtensorKernel);
-    // prettyPrint(double2DVector);
+//     // std::cout << "Convolution wth polar mult and Pq = (1-Ps)(Pa) + (Ps)(Pb) addition:";
+//     // //std::vector<std::vector<double>> result = SC_conv2(SCtensorInput, SCtensorKernel);
+//     // prettyPrint(double2DVector);
 
-    // std::cout << "Convolution wth Stochastic Vectors:";
-    // //std::vector<std::vector<std::vector<int>>> scConvOutput = SC_conv2(SCtensorInput, SCtensorKernel);
-    // prettyPrint(toRealTensor(int3DVector, 4, BIPOLAR));
+//     // std::cout << "Convolution wth Stochastic Vectors:";
+//     // //std::vector<std::vector<std::vector<int>>> scConvOutput = SC_conv2(SCtensorInput, SCtensorKernel);
+//     // prettyPrint(toRealTensor(int3DVector, 4, BIPOLAR));
 
-    std::cout << "1. Stochastic Convolution (bitstream length 1,000,000):";
-    prettyPrint(acc_double2DVector);
+//     std::cout << "1. Stochastic Convolution (bitstream length 1,000,000):";
+//     prettyPrint(acc_double2DVector);
 
-    // StochasticTensor SCtensorInput0(sc_input, 2000, MT19937, BIPOLAR);
-    // StochasticTensor SCtensorKernel0(sc_kernel, 2000, MT19937, BIPOLAR);
+//     // StochasticTensor SCtensorInput0(sc_input, 2000, MT19937, BIPOLAR);
+//     // StochasticTensor SCtensorKernel0(sc_kernel, 2000, MT19937, BIPOLAR);
 
-    // auto scConvOutput0 = SC_conv2(SCtensorInput, SCtensorKernel);
-    // auto acc_double2DVector0 = std::get<2>(scConvOutput0);
+//     // auto scConvOutput0 = SC_conv2(SCtensorInput, SCtensorKernel);
+//     // auto acc_double2DVector0 = std::get<2>(scConvOutput0);
 
-    // std::cout << "1. Stochastic Convolution (bitstream length 2,000):";
-    // prettyPrint(acc_double2DVector0);
+//     // std::cout << "1. Stochastic Convolution (bitstream length 2,000):";
+//     // prettyPrint(acc_double2DVector0);
 
-    // std::vector<std::vector<double>> sc_input2 = {
-    //     {0, -.212, .38},
-    //     {-.4009, -.55, -.66},
-    //     {-.725, -.8125, -.9725}
-    // };
-    // std::vector<std::vector<double>> sc_kernel2 = {
-    //     {.99, 0},
-    //     {-.11, -.5}
-    // };
+//     // std::vector<std::vector<double>> sc_input2 = {
+//     //     {0, -.212, .38},
+//     //     {-.4009, -.55, -.66},
+//     //     {-.725, -.8125, -.9725}
+//     // };
+//     // std::vector<std::vector<double>> sc_kernel2 = {
+//     //     {.99, 0},
+//     //     {-.11, -.5}
+//     // };
 
-    // std::cout << "\n";
-    // std::cout << "2. Convolution wth Original function :";
-    // std::vector<std::vector<double>> originalResult2 = conv2(sc_input2, sc_kernel2);
-    // prettyPrint(originalResult2);
+//     // std::cout << "\n";
+//     // std::cout << "2. Convolution wth Original function :";
+//     // std::vector<std::vector<double>> originalResult2 = conv2(sc_input2, sc_kernel2);
+//     // prettyPrint(originalResult2);
 
-    // StochasticTensor SCtensorInput2(sc_input2, 500, MT19937, BIPOLAR);
-    // StochasticTensor SCtensorKernel2(sc_kernel2, 500, MT19937, BIPOLAR);
+//     // StochasticTensor SCtensorInput2(sc_input2, 500, MT19937, BIPOLAR);
+//     // StochasticTensor SCtensorKernel2(sc_kernel2, 500, MT19937, BIPOLAR);
 
-    // auto scConvOutput2 = SC_conv2(SCtensorInput2, SCtensorKernel2);
+//     // auto scConvOutput2 = SC_conv2(SCtensorInput2, SCtensorKernel2);
 
-    // auto double2DVector2 = std::get<0>(scConvOutput2);
-    // auto int3DVector2 = std::get<1>(scConvOutput2);
-    // auto acc_double2DVector2 = std::get<2>(scConvOutput2);
+//     // auto double2DVector2 = std::get<0>(scConvOutput2);
+//     // auto int3DVector2 = std::get<1>(scConvOutput2);
+//     // auto acc_double2DVector2 = std::get<2>(scConvOutput2);
 
-    // std::cout << "2. Stochastic Convolution (bitstream length 500):";
-    // prettyPrint(acc_double2DVector2);
+//     // std::cout << "2. Stochastic Convolution (bitstream length 500):";
+//     // prettyPrint(acc_double2DVector2);
 
-    // std::vector<std::vector<double>> sc_input3 = {
-    //     {0, -.735, -.377},
-    //     {-.411, 0, -.665},
-    //     {.733, -1, 0}
-    // };
-    // std::vector<std::vector<double>> sc_kernel3 = {
-    //     {-1, 0},
-    //     {-1, -.22}
-    // };
+//     // std::vector<std::vector<double>> sc_input3 = {
+//     //     {0, -.735, -.377},
+//     //     {-.411, 0, -.665},
+//     //     {.733, -1, 0}
+//     // };
+//     // std::vector<std::vector<double>> sc_kernel3 = {
+//     //     {-1, 0},
+//     //     {-1, -.22}
+//     // };
 
-    // std::cout << "\n";
-    // std::cout << "3. Convolution wth Original function :";
-    // std::vector<std::vector<double>> originalResult3 = conv2(sc_input3, sc_kernel3);
-    // prettyPrint(originalResult3);
+//     // std::cout << "\n";
+//     // std::cout << "3. Convolution wth Original function :";
+//     // std::vector<std::vector<double>> originalResult3 = conv2(sc_input3, sc_kernel3);
+//     // prettyPrint(originalResult3);
 
-    // StochasticTensor SCtensorInput3(sc_input3, 255, LFSR, BIPOLAR);
-    // StochasticTensor SCtensorKernel3(sc_kernel3, 255, LFSR, BIPOLAR);
+//     // StochasticTensor SCtensorInput3(sc_input3, 255, LFSR, BIPOLAR);
+//     // StochasticTensor SCtensorKernel3(sc_kernel3, 255, LFSR, BIPOLAR);
 
-    // auto scConvOutput3 = SC_conv2(SCtensorInput3, SCtensorKernel3);
+//     // auto scConvOutput3 = SC_conv2(SCtensorInput3, SCtensorKernel3);
 
-    // auto double2DVector3 = std::get<0>(scConvOutput3);
-    // auto int3DVector3 = std::get<1>(scConvOutput3);
-    // auto acc_double2DVector3 = std::get<2>(scConvOutput3);
+//     // auto double2DVector3 = std::get<0>(scConvOutput3);
+//     // auto int3DVector3 = std::get<1>(scConvOutput3);
+//     // auto acc_double2DVector3 = std::get<2>(scConvOutput3);
 
-    // std::cout << "2. Stochastic Convolution (LFSR, bitstream length 255):";
-    // prettyPrint(acc_double2DVector3);
+//     // std::cout << "2. Stochastic Convolution (LFSR, bitstream length 255):";
+//     // prettyPrint(acc_double2DVector3);
     
-    return 0;
-}
+//     return 0;
+// }
 
 
 

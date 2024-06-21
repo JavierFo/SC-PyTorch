@@ -2,21 +2,29 @@
 #include <iostream>
 #include <stdexcept>
 #include <random>
+//#include <torch/extension.h>
 
 // Constructor
-StochasticTensor::StochasticTensor(int x, int y, int z)
-    : x_dim(x), y_dim(y), z_dim(z), tensor(x, std::vector<std::vector<int>>(y, std::vector<int>(z))) {
-    generateRandomTensor();
-}
+StochasticTensor::StochasticTensor() : tensor() {}
 
 StochasticTensor::StochasticTensor(const std::vector<std::vector<double>>& inputVector, const int bitstreamLength, RandomNumberGenType type, BitstreamRepresentation mode) 
 : tensor() {
     generateTensor(inputVector, bitstreamLength, type, mode);
 }
 
+StochasticTensor::StochasticTensor(const std::vector<std::vector<std::vector<double>>>& inputVector, const int bitstreamLength, RandomNumberGenType type, BitstreamRepresentation mode) 
+: scTensor() {
+    generate3DTensor(inputVector, bitstreamLength, type, mode);
+}
+
 // Getter for the tensor
 const std::vector<std::vector<std::vector<int>>>& StochasticTensor::getTensor() const {
     return tensor;
+}
+
+// Getter for the tensor
+const std::vector<std::vector<std::vector<std::vector<int>>>>& StochasticTensor::get3DTensor() const {
+    return scTensor;
 }
 
 // Method to print the tensor
@@ -47,8 +55,23 @@ void StochasticTensor::generateTensor(const std::vector<std::vector<double>>& in
             stochasticNumberGenerator(bitstreamLength, type,  inputVector[i][j], mode, SCtensor[i][j]);
         }
     }
-
     tensor = SCtensor;
+}
+
+void StochasticTensor::generate3DTensor(const std::vector<std::vector<std::vector<double>>>& inputVector, const int bitstreamLength, RandomNumberGenType type, BitstreamRepresentation mode){
+    using SCTensor3D = std::vector<std::vector<std::vector<std::vector<int>>>>;
+    SCTensor3D scTensor3D_a(inputVector.size());
+
+    for (size_t i = 0; i < inputVector.size(); ++i) {
+        scTensor3D_a[i].resize(inputVector[i].size());
+        for (size_t j = 0; j < inputVector[i].size(); ++j) {
+            scTensor3D_a[i][j].resize(inputVector[i][j].size());
+            for (size_t k = 0; k < inputVector[i][j].size(); ++k) {
+                stochasticNumberGenerator(bitstreamLength, type,  inputVector[i][j][k], mode, scTensor3D_a[i][j][k]);
+            }
+        }
+    }
+    scTensor = scTensor3D_a;
 }
 
 std::vector<int> StochasticTensor::getVectorAt(int i, int j) const {
@@ -59,27 +82,11 @@ std::vector<int> StochasticTensor::getVectorAt(int i, int j) const {
     }
 }
 
-// Method to generate the tensor with random 1s and 0s
-void StochasticTensor::generateRandomTensor() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, 1);
-
-    for (int i = 0; i < x_dim; ++i) {
-        for (int j = 0; j < y_dim; ++j) {
-            for (int k = 0; k < z_dim; ++k) {
-                tensor[i][j][k] = dis(gen);
-            }
-        }
-    }
-}
-
-// Method to get a specific vector at position (i, j)
-std::vector<int> StochasticTensor::getVectorAtFromRandomTensor(int i, int j) const {
-    if (i >= 0 && i < x_dim && j >= 0 && j < y_dim) {
-        return tensor[i][j];
+std::vector<int> StochasticTensor::get3DVectorAt(int i, int j, int k) const {
+    if (i >= 0 && i < scTensor.size() && j >= 0 && j < scTensor[i].size() && k >= 0 && k < scTensor[i][j].size()) {
+        return scTensor[i][j][k];
     } else {
-        throw std::out_of_range("Index out of bounds");
+        throw std::out_of_range("Index out of range");
     }
 }
 
@@ -90,6 +97,15 @@ StochasticTensor::SizeTuple StochasticTensor::getSize() {
     size_t columns = (rows > 0 && depth > 0) ? tensor[0][0].size() : 0;
 
     return std::make_tuple(depth, rows, columns);
+}
+
+StochasticTensor::SizeTuple3D StochasticTensor::get3DSize() {
+    size_t dimension1 = scTensor.size();
+    size_t dimension2 = dimension1 > 0 ? scTensor[0].size() : 0;
+    size_t dimension3 = (dimension2 > 0 && dimension1 > 0) ? scTensor[0][0].size() : 0;
+    size_t dimension4 = (dimension3 > 0 && dimension2 > 0 && dimension1 > 0) ? scTensor[0][0][0].size() : 0;
+
+    return std::make_tuple(dimension1, dimension2, dimension3, dimension4);
 }
 
 // Function to process the input 3D vector and apply the specified operations
@@ -115,6 +131,36 @@ std::vector<std::vector<double>> StochasticTensor::toRealTensor(int scale, Bitst
                 }
         }
         result.push_back(rowResult);
+    }
+    return result;
+}
+
+std::vector<std::vector<std::vector<double>>> StochasticTensor::toReal3DTensor(int scale, BitstreamRepresentation mode) {
+    std::vector<std::vector<std::vector<double>>> result;
+    
+    for (const auto& depth_slice : scTensor) {
+        std::vector<std::vector<double>> slice_result;
+        for (const auto& row : depth_slice) {
+            std::vector<double> rowResult;
+            for (const auto& vec : row){
+                int countOnes = 0;
+                for (int val : vec) {
+                    if (val == 1) {
+                        countOnes++;
+                    }
+                }
+                double probability = static_cast<double>(countOnes) / vec.size();
+                    if (mode == UNIPOLAR) {
+                        rowResult.push_back(probability * scale);
+                    } else if (mode == BIPOLAR) {
+                        rowResult.push_back(((2 * probability) - 1) * scale);
+                    } else {
+                        throw std::invalid_argument("Invalid mode");
+                    }
+            }
+            slice_result.push_back(rowResult);
+        }
+        result.push_back(slice_result);
     }
     return result;
 }
@@ -239,13 +285,7 @@ std::vector<int> bitstreamOperation(const std::vector<int>& bitstream1, const st
                 break;
             case MUX: 
                 random_value = dis(gen);
-                //result[i] = (select[i] == 1) ? bitstream1[i] : bitstream2[i];
                 result[i] = (random_value < 0.5) ? bitstream1[i] : bitstream2[i];
-                // if (random_value < 0.5) {
-                //     result[i] = bitstream1[i];
-                // } else {
-                //     result[i] = bitstream2[i];
-                // }
                 break;
             default:
                 throw std::invalid_argument("Invalid operation");
@@ -253,6 +293,36 @@ std::vector<int> bitstreamOperation(const std::vector<int>& bitstream1, const st
     }
     return result;
 }
+
+// PYBIND11_MODULE(stochastic_tensor_cpp, m) {  // Ensure the module name matches
+//     m.def("stochasticNumberGenerator", &stochasticNumberGenerator, "An stochastic Number Generator function");
+//     m.def("calculatePx", &calculatePx, "An polar probability generator function");
+//     m.def("ScConv2d", &ScConv2d, "2D stochastic convolution");
+
+//      pybind11::enum_<RandomNumberGenType>(m, "RandomNumberGenType")
+//         .value("LFSR", RandomNumberGenType::LFSR)
+//         .value("MT19937", RandomNumberGenType::MT19937)
+//         .export_values();
+
+//     pybind11::enum_<BitwiseOperation>(m, "BitwiseOperation")
+//         .value("AND", BitwiseOperation::AND)
+//         .value("OR", BitwiseOperation::OR)
+//         .value("XOR", BitwiseOperation::XOR)
+//         .value("NOR", BitwiseOperation::NOR)
+//         .value("XNOR", BitwiseOperation::XNOR)
+//         .value("NAND", BitwiseOperation::NAND)
+//         .value("MUX", BitwiseOperation::MUX)
+//         .export_values();
+
+//     pybind11::enum_<BitstreamRepresentation>(m, "BitstreamRepresentation")
+//         .value("UNIPOLAR", BitstreamRepresentation::UNIPOLAR)
+//         .value("BIPOLAR", BitstreamRepresentation::BIPOLAR)
+//         .export_values();
+
+//     // Expose the StochasticTensor class
+//     pybind11::class_<StochasticTensor>(m, "StochasticTensor")
+//         .def(pybind11::init<const std::vector<std::vector<double>>&, int, RandomNumberGenType, BitstreamRepresentation>())
+// }
 
 // // Function to generate an array of lfsr based random numbers
 // std::vector<int> LFSR_RNG_arrayGenerator(int arrayLength_bitstreamLength, uint8_t lfsr_seed) {
